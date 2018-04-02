@@ -7,6 +7,8 @@ extern crate mio;
 extern crate num_cpus;
 extern crate clap;
 extern crate glob;
+#[macro_use] extern crate log;
+extern crate env_logger;
 
 use std::io;
 use std::io::{Read, Write};
@@ -18,6 +20,7 @@ use std::sync::Arc;
 use std::net::SocketAddr;
 use clap::{App, Arg};
 use glob::Pattern;
+// use log::Level;
 
 struct Store {
     keys: HashMap<Vec<u8>, Vec<u8>>,
@@ -39,6 +42,7 @@ struct Conn {
 }
 
 fn main() {
+    env_logger::init();
     let matches = App::new("cache-server")
         .version("v0.0.1")
         .author("Josh Baker <joshbaker77@gmail.com>")
@@ -78,7 +82,7 @@ fn main() {
     main_poll
         .register(&server, Token(0), Ready::readable(), PollOpt::empty())
         .unwrap();
-    println!(
+    info!(
         "Server started on port {} using {} thread{}",
         port,
         threads,
@@ -227,11 +231,13 @@ fn child_loop(
             }
         }
         if close {
+            info!("Client disconnected {:?}", streams[&id].addr);
             streams.remove(&id);
             event_closed(id);
         } else if !found {
             if let Some(mut conn) = main_conns.lock().unwrap().remove(&id) {
                 let (output, close) = event_opened(id, conn.addr);
+                info!("Client connected {:?}", conn.addr);
                 if output.len() > 0 {
                     conn.reg_write = true;
                     conn.close = close;
